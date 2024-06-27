@@ -3,13 +3,14 @@ The repository contains files for neural language modelling. Uses NLTK and Keras
 
 ## Installation
 
-Before running any application, get the necessary Python libraries listed in `requirements.txt`. Fetch all necessary NLTK files (e.g. gutenberg, from which text files are read). This is done with the following code which can be added into existing files or can be written in a separate file :
+Before running any application, get the necessary Python libraries listed in `requirements.txt`. If only `nlm-keras.py` model is used, torch isn't needed. If only `nlm-torch.py` is used, keras download isn't needed. Fetch all necessary NLTK files (e.g. gutenberg, from which text files are read). This is done with the following code which can be added into existing files or can be written in a separate file :
 
 ```
 import nltk
 
 nltk.download('punkt')
 nltk.download('gutenberg')
+nltk.download('stopwords')
 
 print("Downloads complete.")
 ```
