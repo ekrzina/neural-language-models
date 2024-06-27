@@ -1,5 +1,5 @@
 # neural-language-models
-The repository contains files for neural language modelling. Uses NLTK and Keras for model training / validation.
+The repository contains files for neural language modelling. Uses NLTK and Keras / Pytorch for model training / validation.
 
 ## Installation
 
@@ -26,8 +26,7 @@ unzip glove.6B.zip
 ## File Description
 
 Currently, the repository contains three separate Python applications:
-- nlm.py - NLM from scratch
-- nlmopt.py - optimized NLM; includes GloVe embeddings - *recommended*
+- nlm-keras.py - optimized NLM; includes GloVe embeddings
 - get_gutenberg_sentence.py - selects random sentence from given input Gutenberg texts
 
 To see all available text files for picking specific texts, write the following lines of code:
@@ -37,10 +36,10 @@ file_ids = gutenberg.fileids()
 print(file_ids)
 ```
 
-In the `nlmopt.py` file, a function for importing your own text data has been added. To use your own textual dataset, uncomment the `modeltexts = import_data(TEXT_FILE)` line and change the `TEXT_FILE` parameter. You can comment out `gutenberg.raw` files now, or you may add the imported text by concatting it to the given Gutenberg raws by adding the following code snippet after import:
+In the `nlm-keras.py` and `nlm-torch.py` files, a function for importing your own text data has been added. To use your own textual dataset, uncomment the `modeltexts = import_data(TEXT_FILE)` line and change the `TEXT_FILE` parameter. You can comment out `gutenberg.raw` files now, or you may add the imported text by concatting it to the given Gutenberg raws by adding the following code snippet after import:
 
 ```
 modeltexts = modeltexts_gutenberg + '\n' + modeltexts_file
 ```
 
-The application uses Keras to create a model, train it, validate it and save it. One can change training parameters for varied results.
+The `nlm-keras.py` application uses Keras to create a model, train it, validate it and save it. One can change training parameters for varied results, while `nlm-torch.py` uses Pytorch.
