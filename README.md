@@ -27,7 +27,8 @@ unzip glove.6B.zip
 ## File Description
 
 Currently, the repository contains three separate Python applications:
-- nlm-keras.py - optimized NLM; includes GloVe embeddings
+- nlm-keras.py - Keras and NLM; includes GloVe embeddings
+- nlm-torch.py - Torch and NLM; includes GloVe embeddings; *recommended*
 - get_gutenberg_sentence.py - selects random sentence from given input Gutenberg texts
 
 To see all available text files for picking specific texts, write the following lines of code:
