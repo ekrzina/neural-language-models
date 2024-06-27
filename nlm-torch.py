@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from nltk.corpus import gutenberg
 from nltk.tokenize import sent_tokenize, word_tokenize
@@ -18,12 +19,16 @@ import numpy as np
 
 # Constants
 OUTPUT_DIR = "model_out"
-MODEL_NAME = "sentgen_v1_weights.pt"
-LOG_NAME = "sentgen_v1"
-EMBEDDING_DIM = 100     # GloVe embeddings dimension
-BATCH_SIZE = 128
+MODEL_NAME = "sentgen_v4_weights.pt"
+LOG_NAME = "sentgen_v4"
+EMBEDDING_DIM = 300     # GloVe embeddings dimension
 SEQ_LENGTH = 30
 TEXT_FILE = "sample.txt"
+
+# Hyperparameters
+BATCH_SIZE = 128
+LEARNING_RATE = 0.0025
+NUM_EPOCHS = 100
 
 # Get random sentence for check
 def get_random_sentence(text):
@@ -112,7 +117,7 @@ class TextDataset(Dataset):
         return torch.LongTensor(self.sequences[idx][:-1]), torch.LongTensor([self.sequences[idx][-1]])
 
 # Function for training and evaluating the model
-def train_model(model, dataloader, criterion, optimizer, num_epochs=100):
+def train_model(model, dataloader, criterion, optimizer, scheduler, num_epochs=100):
     print("Starting training...")
 
     if not os.path.exists(OUTPUT_DIR):
@@ -163,6 +168,9 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs=100):
 
         val_loss /= len(dataloader)
         print(f"Validation Loss: {val_loss:.4f}")
+
+        # Adjust learning rate based on validation loss
+        scheduler.step(val_loss)
 
         # Early stopping
         if val_loss < best_val_loss:
@@ -228,15 +236,18 @@ def main():
     vocab_size = len(mapping)
     hidden_dim = 150
     model = TextGenerator(vocab_size, EMBEDDING_DIM, hidden_dim, embedding_matrix)
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     criterion = nn.CrossEntropyLoss()
+
+    # Learning rate scheduler
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
     # Create PyTorch Dataset and DataLoader
     dataset = TextDataset(sequences_encoded)
     dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     # Train model
-    train_model(model, dataloader, criterion, optimizer)
+    train_model(model, dataloader, criterion, optimizer, scheduler, num_epochs=NUM_EPOCHS)
 
     # Generate text
     seed_text = get_random_word(modeltext)
