@@ -30,7 +30,7 @@ Currently, the repository contains three separate Python applications:
 - nlm-keras.py - Keras and NLM; includes GloVe embeddings
 - nlm-torch.py - Torch and NLM; includes GloVe embeddings; *recommended*
 - get_gutenberg_sentence.py - selects random sentence from given input Gutenberg texts
-- sentgen.py - generates sentence from imported model
+- sentgen.py - generates sentence from imported model (torch)
 
 To see all available text files for picking specific texts, write the following lines of code:
 
