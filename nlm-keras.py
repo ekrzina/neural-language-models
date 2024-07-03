@@ -1,198 +1,202 @@
-import random
-import re
+import tensorflow as tf
+from keras.layers import StringLookup, Embedding, GRU, Dense
+import numpy as np
 import os
 import time
-
+import random
 from nltk.corpus import gutenberg
-from nltk.tokenize import sent_tokenize, word_tokenize
-from nltk.corpus import stopwords
+from nltk import sent_tokenize, word_tokenize
 
-import numpy as np
-from keras.utils import to_categorical
-from keras.preprocessing.sequence import pad_sequences
-from keras.models import Sequential
-from keras.layers import Dense, GRU, Embedding
-from keras.callbacks import EarlyStopping, ModelCheckpoint
-from nltk.translate.bleu_score import sentence_bleu
+SEQ_LEN = 100
+BATCH_SIZE = 64
+BUFFER_SIZE = 10000
+EMBEDDING_DIM = 256
+RNN_UNITS = 1024
+EPOCHS = 20
 
-from sklearn.model_selection import train_test_split
+CHECKPOINT_DIR = "sentgen_checkpoints"
 
-# Constants
-OUTPUT_DIR = "model_out_fin"
-MODEL_NAME = "sentgen_v1_weights.h5"
-EMBEDDING_DIM = 100     # glove embeddings dimension
-BATCH_SIZE = 128
-TEXT_FILE = "sample.txt"
+class OneStep(tf.keras.Model):
+    def __init__(self, model, chars_from_ids, ids_from_chars, temperature=1.0):
+        super().__init__()
+        self.temperature = temperature
+        self.model = model
+        self.chars_from_ids = chars_from_ids
+        self.ids_from_chars = ids_from_chars
+
+        # Create a mask to prevent "[UNK]" from being generated.
+        skip_ids = self.ids_from_chars(['[UNK]'])[:, None]
+        sparse_mask = tf.SparseTensor(
+            # Put a -inf at each bad index.
+            values=[-float('inf')]*len(skip_ids),
+            indices=skip_ids,
+            # Match the shape to the vocabulary
+            dense_shape=[len(ids_from_chars.get_vocabulary())])
+        self.prediction_mask = tf.sparse.to_dense(sparse_mask)
+
+    @tf.function
+    def generate_one_step(self, inputs, states=None):
+        input_chars = tf.strings.unicode_split(inputs, 'UTF-8')
+        input_ids = self.ids_from_chars(input_chars).to_tensor()
+
+        # predicted_logits.shape is [batch, char, next_char_logits]
+        predicted_logits, states = self.model(inputs=input_ids, states=states,
+                                              return_state=True)
+        # Only use the last prediction
+        predicted_logits = predicted_logits[:, -1, :]
+        predicted_logits = predicted_logits/self.temperature
+        # Apply the prediction mask: prevent "[UNK]" from being generated.
+        predicted_logits = predicted_logits + self.prediction_mask
+
+        # Sample the output logits to generate token IDs.
+        predicted_ids = tf.random.categorical(predicted_logits, num_samples=1)
+        predicted_ids = tf.squeeze(predicted_ids, axis=-1)
+
+        # Convert from token ids to characters
+        predicted_chars = self.chars_from_ids(predicted_ids)
+
+        # Return the characters and model state.
+        return predicted_chars, states
+
+class LMModel(tf.keras.Model):
+    def __init__(self, vocab_size, embedding_dim, rnn_units):
+        super().__init__(self)
+        self.embedding = Embedding(vocab_size, embedding_dim)
+        self.gru = GRU(rnn_units, return_sequences=True, return_state=True)
+        self.dense = Dense(vocab_size)
+    
+    def call(self, inputs, states=None, return_state=False, training=False):
+        x = inputs
+        x = self.embedding(x, training=training)
+        if states is None:
+            states = self.gru.get_initial_state(x)
+        x, states = self.gru(x, initial_state=states, training=training)
+        x = self.dense(x, training=training)
+
+        if return_state:
+            return x, states
+        else:
+            return x
 
 # Get random sentence for check
 def get_random_sentence(text):
     sentences = sent_tokenize(text)
-    random_sentence = random.choice(sentences)
-    return random_sentence
+    return random.choice(sentences)
 
 # Gets random word for sentence generation
 def get_random_word(text):
     sentence = get_random_sentence(text)
     words = word_tokenize(sentence)
-    random_word = random.choice(words)
-    return random_word
+    return random.choice(words)
 
-# Function to load GloVe embeddings
-def load_glove_embeddings(embedding_dim):
-    glove_dir = 'glove'
-    print("Loading GloVe embeddings...")
-    embedding_file = os.path.join(glove_dir, f'glove.6B.{embedding_dim}d.txt')
-    embeddings_index = {}
-    with open(embedding_file, encoding='utf-8') as f:
-        for line in f:
-            values = line.split()
-            word = values[0]
-            coefs = np.asarray(values[1:], dtype='float32')
-            embeddings_index[word] = coefs
-    print(f"Total {len(embeddings_index)} word vectors loaded.")
-    return embeddings_index
-
-# Function to create embedding matrix
-def create_embedding_matrix(word_index, embeddings_index, embedding_dim):
-    vocabulary_size = len(word_index) + 1
-    embedding_matrix = np.zeros((vocabulary_size, embedding_dim))
-    for word, i in word_index.items():
-        embedding_vector = embeddings_index.get(word)
-        if embedding_vector is not None:
-            embedding_matrix[i] = embedding_vector
-    return embedding_matrix
-
-# Function to preprocess text
-def preprocess_text(text):
-    # Lowercase and remove punctuation
-    new_text = text.lower()
-    new_text = re.sub(r"'s\b", "", new_text)
-    new_text = re.sub("[^a-zA-Z]", " ", new_text)
-
-    # Remove stopwords
-    stop_words = set(stopwords.words('english'))
-    long_words = [word for word in new_text.split() if len(word) >= 3 and word not in stop_words]
-    
-    return " ".join(long_words).strip()
-
-# Function to create sequences from text
-def create_sequences(text, seq_length):
-    print("Creating model sequences...")
-    sequences = []
-    for i in range(seq_length, len(text)):
-        seq = text[i - seq_length:i + 1]
-        sequences.append(seq)
-    print(f"Total sequences: {len(sequences)}")
-    return sequences
-
-# Function to encode sequences
-def encode_sequences(sequences, mapping):
-    sequences_encoded = []
-    for seq in sequences:
-        encoded_seq = [mapping[char] for char in seq]
-        sequences_encoded.append(encoded_seq)
-    return np.array(sequences_encoded)
-
-# Function to create and compile model with GloVe embedding
-def create_model(vocabulary_size, embedding_dim, embedding_matrix, seq_length):
-    model = Sequential()
-    model.add(Embedding(vocabulary_size, embedding_dim, weights=[embedding_matrix], input_length=seq_length, trainable=False))
-    model.add(GRU(150, recurrent_dropout=0.1, dropout=0.1))
-    model.add(Dense(vocabulary_size, activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    return model
-
-# Function to save model weights
-def save_model_weights(model):
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-    model_path = os.path.join(OUTPUT_DIR, MODEL_NAME)
-    model.save_weights(model_path)
-    print(f"Model weights saved to {model_path}.")
-
-# Function to generate text from model
-def generate_text(model, mapping, seq_length, seed_text, n_chars):
-    in_text = seed_text
-    for _ in range(n_chars):
-        encoded = [mapping[char] for char in in_text]
-        encoded = pad_sequences([encoded], maxlen=seq_length, truncating='pre')
-        yhat = np.argmax(model.predict(encoded), axis=-1)
-        out_char = ''
-        for char, index in mapping.items():
-            if index == yhat:
-                out_char = char
-                break
-        in_text += out_char
-    return in_text
-
-# Function to evaluate BLEU score for generated text
-def evaluate_bleu(reference_text, generated_text):
-    reference_tokens = reference_text.split()
-    generated_tokens = generated_text.split()
-    return sentence_bleu([reference_tokens], generated_tokens)
-
-# Imports text data from local source
-def import_data(filename):
-    with open(filename, 'r', encoding='utf-8') as file:
-        text = file.read()
-    return text
-
-# Main function to train and use the model
-def main():
-    # Load and preprocess text data
+# Gets raw text files to process
+def get_raw_text_files():
     file_ids = gutenberg.fileids()
     combined_text = ""
     for file_id in file_ids:
-        combined_text += gutenberg.raw(file_id) + '\n'
-    modeltexts = combined_text
+        if file_id != 'bible-kjv.txt':
+            combined_text += gutenberg.raw(file_id) + '\n'
+    return combined_text
+
+# Define the function to create the StringLookup layer for character to ID conversion
+def create_ids_from_chars(vocab):
+    return StringLookup(vocabulary=list(vocab), mask_token=None)
+
+# Define the function to create the inverse lookup for ID to character conversion
+def create_chars_from_ids(ids_from_chars):
+    return StringLookup(vocabulary=ids_from_chars.get_vocabulary(), invert=True, mask_token=None)
+
+# Convert text to IDs
+def text_from_ids(ids, chars_from_ids):
+    return tf.strings.reduce_join(chars_from_ids(ids), axis=-1)
+
+# Function to define input - label pairs (current char - next char)
+def split_input_target(sequence):
+    input_text = sequence[:-1]
+    target_text = sequence[1:]
+    return input_text, target_text
+
+def create_checkpoint_dir():
+    if not os.path.exists(CHECKPOINT_DIR):
+        os.makedirs(CHECKPOINT_DIR)
+
+def train_model(vocab_size, dataset, chars_from_ids):
+    model = LMModel(vocab_size=vocab_size,
+                    embedding_dim=EMBEDDING_DIM,
+                    rnn_units=RNN_UNITS)
     
-    #modeltexts = import_data(TEXT_FILE)
-    preprocessed_text = preprocess_text(modeltexts)
+    for input_example_batch, target_example_batch in dataset.take(1):
+        example_batch_predictions = model(input_example_batch)
+        print(example_batch_predictions.shape, "# (batch_size, sequence_length, vocab_size)")
 
-    # Create sequences and mappings
-    chars = sorted(list(set(preprocessed_text)))
-    mapping = dict((c, i) for i, c in enumerate(chars))
-    sequences = create_sequences(preprocessed_text, seq_length=30)
-    sequences_encoded = encode_sequences(sequences, mapping)
+    model.summary()
 
-    # Create GloVe embeddings
-    embeddings_index = load_glove_embeddings(EMBEDDING_DIM)
-    embedding_matrix = create_embedding_matrix(mapping, embeddings_index, EMBEDDING_DIM)
+    loss = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
+    example_batch_mean_loss = loss(target_example_batch, example_batch_predictions)
+    print("Prediction shape: ", example_batch_predictions.shape, " # (batch_size, sequence_length, vocab_size)")
+    print("Mean loss:        ", example_batch_mean_loss)
+    tf.exp(example_batch_mean_loss).numpy()
+    model.compile(optimizer='adam', loss=loss)
 
-    # Create and compile model
-    vocabulary_size = len(mapping) + 1
-    model = create_model(vocabulary_size, EMBEDDING_DIM, embedding_matrix, seq_length=30)
-    print(model.summary())
+    create_checkpoint_dir()
+    checkpoint_prefix = os.path.join(CHECKPOINT_DIR, "ckpt_{epoch}")
+    checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+        filepath=checkpoint_prefix,
+        save_weights_only=True)
+    history = model.fit(dataset, epochs=EPOCHS, callbacks=[checkpoint_callback])
 
-    # Split data into train and validation sets
-    x, y = sequences_encoded[:, :-1], sequences_encoded[:, -1]
-    y = to_categorical(y, num_classes=vocabulary_size)
-    x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=0.1, random_state=74)
+    return model
 
-    # Train model and evaluate BLEU score
-    callbacks = [
-        EarlyStopping(monitor='val_loss', patience=10),
-        ModelCheckpoint(filepath=os.path.join(OUTPUT_DIR, MODEL_NAME), save_best_only=True)
-    ]
-    start_time = time.time()
-    model.fit(x_train, y_train, epochs=200, batch_size=BATCH_SIZE, verbose=2, validation_data=(x_val, y_val), callbacks=callbacks)
-    end_time = time.time()
-    epoch_duration = (end_time - start_time) / 200
-    print(f"Average time per epoch: {epoch_duration:.2f} seconds")
+def generate_text(model, start_string, chars_from_ids, ids_from_chars):
+    one_step_model = OneStep(model, chars_from_ids, ids_from_chars)
+    states = None
+    next_char = tf.constant([start_string])
+    result = [next_char]
 
-    # Generate text
-    seed_text = get_random_word(modeltexts)
-    generated_text = generate_text(model, mapping, 30, seed_text, 100)
-    print("Generated Text:")
+    for n in range(1000):  # Generate 1000 characters
+        next_char, states = one_step_model.generate_one_step(next_char, states=states)
+        result.append(next_char)
+
+    result = tf.strings.join(result)
+    return result[0].numpy().decode('utf-8')
+
+# Load the latest checkpoint
+def load_latest_checkpoint(vocab_size):
+    model = LMModel(vocab_size=vocab_size,
+                    embedding_dim=EMBEDDING_DIM,
+                    rnn_units=RNN_UNITS)
+    checkpoint_dir = CHECKPOINT_DIR
+    latest = tf.train.latest_checkpoint(checkpoint_dir)
+    model.load_weights(latest)
+    return model
+
+def main():
+    texts = get_raw_text_files()
+    vocab = sorted(set(texts))
+    
+    ids_from_chars = create_ids_from_chars(vocab)
+    chars_from_ids = create_chars_from_ids(ids_from_chars)
+    
+    all_ids = ids_from_chars(tf.strings.unicode_split(texts, 'UTF-8'))
+    ids_dataset = tf.data.Dataset.from_tensor_slices(all_ids)
+
+    sequences = ids_dataset.batch(SEQ_LEN + 1, drop_remainder=True)
+    dataset = sequences.map(split_input_target)
+    dataset = (
+        dataset
+        .shuffle(BUFFER_SIZE)
+        .batch(BATCH_SIZE, drop_remainder=True)
+        .prefetch(tf.data.experimental.AUTOTUNE))
+
+    vocab_size = len(ids_from_chars.get_vocabulary())
+    
+    train_model(vocab_size, dataset, chars_from_ids)
+
+    # After training, generate text
+    model = load_latest_checkpoint(vocab_size)
+    start_string = "Once upon a time"
+    generated_text = generate_text(model, start_string, chars_from_ids, ids_from_chars)
     print(generated_text)
-
-    # Evaluate BLEU score
-    reference_text = get_random_sentence(modeltexts)
-    bleu_score = evaluate_bleu(reference_text, generated_text)
-    print(f"BLEU score: {bleu_score}")
-
-    # Save model weights
-    save_model_weights(model)
 
 if __name__ == "__main__":
     main()
