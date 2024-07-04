@@ -39,4 +39,4 @@ file_ids = gutenberg.fileids()
 print(file_ids)
 ```
 
-The `nlm-keras.py` application uses Keras to create a model, train it, validate it and save it. One can change training parameters for varied results, while `nlm-torch.py` uses Pytorch.
+The `nlm-keras.py` application uses Keras to create a model, train it, validate it and save it, while `nlm-torch.py` uses Pytorch. One can change training parameters for varied results.
