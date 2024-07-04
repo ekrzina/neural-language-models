@@ -27,22 +27,16 @@ unzip glove.6B.zip
 ## File Description
 
 Currently, the repository contains three separate Python applications:
-- nlm-keras.py - Keras and NLM; includes GloVe embeddings
-- nlm-torch.py - Torch and NLM; includes GloVe embeddings; *recommended*
-- get_gutenberg_sentence.py - selects random sentence from given input Gutenberg texts
-- sentgen.py - generates sentence from imported model (torch)
+- `nlm-keras.py` - Keras and NLM; includes GloVe embeddings; *recommended*
+- `nlm-torch.py` - Torch and NLM; includes GloVe embeddings
+- `get_gutenberg_sentence.py` - selects random sentence from given input Gutenberg texts
+- `generate_nlm_torch.py` - generates torch text from imported model
 
 To see all available text files for picking specific texts, write the following lines of code:
 
 ```
 file_ids = gutenberg.fileids()
 print(file_ids)
-```
-
-In the `nlm-keras.py` and `nlm-torch.py` files, a function for importing your own text data has been added. To use your own textual dataset, uncomment the `modeltexts = import_data(TEXT_FILE)` line and change the `TEXT_FILE` parameter. You can comment out `gutenberg.raw` files now, or you may add the imported text by concatting it to the given Gutenberg raws by adding the following code snippet after import:
-
-```
-modeltexts = modeltexts_gutenberg + '\n' + modeltexts_file
 ```
 
 The `nlm-keras.py` application uses Keras to create a model, train it, validate it and save it. One can change training parameters for varied results, while `nlm-torch.py` uses Pytorch.
