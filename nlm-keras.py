@@ -1,8 +1,7 @@
 import tensorflow as tf
 from keras.layers import StringLookup, Embedding, GRU, Dense
-import numpy as np
+from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 import os
-import time
 import random
 from nltk.corpus import gutenberg
 from nltk import sent_tokenize, word_tokenize
@@ -15,8 +14,10 @@ RNN_UNITS = 1024
 EPOCHS = 20
 
 CHECKPOINT_DIR = "sentgen_checkpoints_v2"
+MODELS_PATH = "model_out"
 MODEL_SAVE_PATH = "sentgen_model_v2"
-LOAD_METHOD = "checkpoint"
+# checkpoint / model
+LOAD_METHOD = "model"
 
 class OneStep(tf.keras.Model):
     def __init__(self, model, chars_from_ids, ids_from_chars, temperature=1.0):
@@ -133,41 +134,6 @@ def create_checkpoint_dir():
     if not os.path.exists(CHECKPOINT_DIR):
         os.makedirs(CHECKPOINT_DIR)
 
-# saves model to specified path
-def save_model(model):
-    if not os.path.exists(MODEL_SAVE_PATH):
-        os.makedirs(MODEL_SAVE_PATH)
-    model.save(MODEL_SAVE_PATH)
-    print(f"Model saved to {MODEL_SAVE_PATH}")
-
-# function for training language model
-def train_model(vocab_size, dataset):
-    model = LMModel(vocab_size=vocab_size, embedding_dim=EMBEDDING_DIM, rnn_units=RNN_UNITS)
-    # sets up model config; displays losses and accuracy while training
-    model.compile(optimizer='adam', loss=tf.losses.SparseCategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
-    checkpoint_prefix = os.path.join(CHECKPOINT_DIR, "ckpt_{epoch}")
-    # saves only best checkpoints
-    checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_prefix, save_weights_only=True, save_best_only=True, monitor='loss', mode='min')
-    # start training  
-    model.fit(dataset, epochs=EPOCHS, callbacks=[checkpoint_callback])
-    save_model(model)
-    return model
-
-# generates new text from specified start string and range
-def generate_text(model, start_string, chars_from_ids, ids_from_chars, text_range):
-    one_step_model = OneStep(model, chars_from_ids, ids_from_chars)
-    states = None
-    # character is converted to tensorflow constant
-    next_char = tf.constant([start_string])
-    result = [next_char]
-    for _ in range(text_range):
-        # generates next step of character
-        next_char, states = one_step_model.generate_one_step(next_char, states=states)
-        result.append(next_char)
-    result = tf.strings.join(result)
-    # result is decoded before beign returned
-    return result[0].numpy().decode('utf-8')
-
 # loads latest checkpoint so as to not reset training
 def load_latest(vocab_size):
     if LOAD_METHOD == "checkpoint":
@@ -186,16 +152,79 @@ def load_latest(vocab_size):
             print("No checkpoint found. Training a new model.")
             return None
     elif LOAD_METHOD == "model":
-        if os.path.exists(MODEL_SAVE_PATH):
-            model = tf.keras.models.load_model(MODEL_SAVE_PATH)
-            print(f"Loaded model from saved file {MODEL_SAVE_PATH}")
+        save_path = os.path.join(MODELS_PATH, MODEL_SAVE_PATH)
+        if os.path.exists(save_path):
+            model = tf.keras.models.load_model(save_path)
+            print(f"Loaded model from saved file {save_path}")
             return model
         else:
-            print(f"No model file found at {MODEL_SAVE_PATH}. Training a new model.")
+            print(f"No model file found at {save_path}. Training a new model.")
             return None
     else:
         print("No loading method was chosen. Training a new model.")
         return None
+
+# saves model to specified path
+def save_model(model):
+    if not os.path.exists(MODEL_SAVE_PATH):
+        os.makedirs(MODEL_SAVE_PATH)
+    save_path = os.path.join(MODELS_PATH, MODEL_SAVE_PATH)
+    model.save(save_path)
+    print(f"Model saved to {MODEL_SAVE_PATH}")
+
+# function for training language model
+def train_model(vocab_size, dataset):
+    model = LMModel(vocab_size=vocab_size, embedding_dim=EMBEDDING_DIM, rnn_units=RNN_UNITS)
+    # sets up model config; displays losses and accuracy while training
+    model.compile(optimizer='adam', loss=tf.losses.SparseCategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
+    checkpoint_prefix = os.path.join(CHECKPOINT_DIR, "ckpt_{epoch}")
+    #added checkpoint, tensorflow early stopping callback
+    checkpoint_callback = ModelCheckpoint(filepath=checkpoint_prefix, 
+                                          save_weights_only=True, 
+                                          save_best_only=True, 
+                                          monitor='loss', 
+                                          mode='min')
+    
+    early_stopping_callback = EarlyStopping(monitor='val_loss', 
+                                            patience=3, 
+                                            verbose=1, 
+                                            mode='min', 
+                                            restore_best_weights=True)
+    
+    tensorboard_callback = TensorBoard(log_dir=MODELS_PATH, 
+                                       histogram_freq=1)
+    # making validation dataset
+    split = int(len(dataset) * 0.9)
+    train_dataset = dataset.take(split)
+    val_dataset = dataset.skip(split)
+
+    # start training  
+    model.fit(train_dataset, 
+              epochs=EPOCHS, 
+              callbacks=[checkpoint_callback, early_stopping_callback, tensorboard_callback], 
+              validation_data=val_dataset)
+    
+    # evaluation
+    loss, accuracy = model.evaluate(dataset)
+    print(f'Final Validation Loss: {loss:.4f}, Accuracy: {accuracy:.4f}')
+    save_model(model)
+    
+    return model
+
+# generates new text from specified start string and range
+def generate_text(model, start_string, chars_from_ids, ids_from_chars, text_range):
+    one_step_model = OneStep(model, chars_from_ids, ids_from_chars)
+    states = None
+    # character is converted to tensorflow constant
+    next_char = tf.constant([start_string])
+    result = [next_char]
+    for _ in range(text_range):
+        # generates next step of character
+        next_char, states = one_step_model.generate_one_step(next_char, states=states)
+        result.append(next_char)
+    result = tf.strings.join(result)
+    # result is decoded before beign returned
+    return result[0].numpy().decode('utf-8')
 
 def main():
     texts = get_raw_text_files()
