@@ -1,5 +1,5 @@
 # neural-language-models
-The repository contains files for neural language modelling. Uses NLTK and Keras / Pytorch for model training / validation and generating new text.
+The repository contains files for neural language modelling. Uses NLTK and Keras / Pytorch for model training / validation and generating new text. Uses [TensorBoard](https://www.tensorflow.org/tensorboard) for visualizing training. 
 
 ## Installation
 
