@@ -15,7 +15,7 @@ nltk.download('stopwords')
 print("Downloads complete.")
 ```
 
-The `nlmopt.py` file uses [GloVe](https://nlp.stanford.edu/projects/glove/) for added embeddings. The files are downloaded using the following command lines:
+The `nlm-torch.py` file uses [GloVe](https://nlp.stanford.edu/projects/glove/) for added embeddings. The files are downloaded using the following command lines:
 
 ```
 mkdir glove
