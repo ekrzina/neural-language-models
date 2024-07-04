@@ -1,10 +1,10 @@
 import tensorflow as tf
 from keras.layers import StringLookup, Embedding, GRU, Dense
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
-import os
-import random
 from nltk.corpus import gutenberg
 from nltk import sent_tokenize, word_tokenize
+import os
+import random
 
 SEQ_LEN = 100
 BATCH_SIZE = 64
@@ -15,7 +15,7 @@ EPOCHS = 20
 
 CHECKPOINT_DIR = "sentgen_checkpoints_v2"
 MODELS_PATH = "model_out"
-MODEL_SAVE_PATH = "sentgen_model_v2"
+MODEL_SAVE_PATH = os.path.join(MODELS_PATH, "sentgen_model_v2")
 # checkpoint / model
 LOAD_METHOD = "model"
 
@@ -152,13 +152,12 @@ def load_latest(vocab_size):
             print("No checkpoint found. Training a new model.")
             return None
     elif LOAD_METHOD == "model":
-        save_path = os.path.join(MODELS_PATH, MODEL_SAVE_PATH)
-        if os.path.exists(save_path):
-            model = tf.keras.models.load_model(save_path)
-            print(f"Loaded model from saved file {save_path}")
+        if os.path.exists(MODEL_SAVE_PATH):
+            model = tf.keras.models.load_model(MODEL_SAVE_PATH)
+            print(f"Loaded model from saved file {MODEL_SAVE_PATH}")
             return model
         else:
-            print(f"No model file found at {save_path}. Training a new model.")
+            print(f"No model file found at {MODEL_SAVE_PATH}. Training a new model.")
             return None
     else:
         print("No loading method was chosen. Training a new model.")
