@@ -17,7 +17,7 @@ CHECKPOINT_DIR = "sentgen_checkpoints_v2"
 MODELS_PATH = "model_out"
 MODEL_SAVE_PATH = os.path.join(MODELS_PATH, "sentgen_model_v2")
 # options: checkpoint / model
-LOAD_METHOD = "model"
+LOAD_METHOD = "checkpoint"
 
 class OneStep(tf.keras.Model):
     def __init__(self, model, chars_from_ids, ids_from_chars, temperature=1.0):
