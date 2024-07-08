@@ -11,12 +11,12 @@ BATCH_SIZE = 64
 BUFFER_SIZE = 10000
 EMBEDDING_DIM = 256
 RNN_UNITS = 1024
-EPOCHS = 20
+EPOCHS = 50
 
 CHECKPOINT_DIR = "sentgen_checkpoints_v2"
 MODELS_PATH = "model_out"
 MODEL_SAVE_PATH = os.path.join(MODELS_PATH, "sentgen_model_v2")
-# checkpoint / model
+# options: checkpoint / model
 LOAD_METHOD = "model"
 
 class OneStep(tf.keras.Model):
@@ -167,15 +167,17 @@ def load_latest(vocab_size):
 def save_model(model):
     if not os.path.exists(MODEL_SAVE_PATH):
         os.makedirs(MODEL_SAVE_PATH)
-    save_path = os.path.join(MODELS_PATH, MODEL_SAVE_PATH)
-    model.save(save_path)
+    model.save(MODEL_SAVE_PATH)
     print(f"Model saved to {MODEL_SAVE_PATH}")
-
+    
 # function for training language model
 def train_model(vocab_size, dataset):
     model = LMModel(vocab_size=vocab_size, embedding_dim=EMBEDDING_DIM, rnn_units=RNN_UNITS)
     # sets up model config; displays losses and accuracy while training
-    model.compile(optimizer='adam', loss=tf.losses.SparseCategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
+    model.compile(optimizer='adam', 
+                  loss=tf.losses.SparseCategoricalCrossentropy(from_logits=True), 
+                  metrics=['accuracy'])
+    
     checkpoint_prefix = os.path.join(CHECKPOINT_DIR, "ckpt_{epoch}")
     #added checkpoint, tensorflow early stopping callback
     checkpoint_callback = ModelCheckpoint(filepath=checkpoint_prefix, 
