@@ -15,7 +15,7 @@ nltk.download('stopwords')
 print("Downloads complete.")
 ```
 
-The `nlm-torch.py` file uses [GloVe](https://nlp.stanford.edu/projects/glove/) for added embeddings. The files are downloaded using the following command lines:
+The `nlm-torch.py` file and the sentiment-analysis file for custom data training use [GloVe](https://nlp.stanford.edu/projects/glove/) for added embeddings. The files are downloaded using the following command lines:
 
 ```
 mkdir glove
@@ -26,6 +26,7 @@ unzip glove.6B.zip
 
 ## File Description
 
+### Creating a Neural Language Model
 Currently, the repository contains three separate Python applications:
 - `nlm-keras.py` - Keras and NLM; includes GloVe embeddings; *recommended*
 - `nlm-torch.py` - Torch and NLM; includes GloVe embeddings
@@ -40,3 +41,8 @@ print(file_ids)
 ```
 
 The `nlm-keras.py` application uses Keras to create a model, train it, validate it and save it, while `nlm-torch.py` uses Pytorch. One can change training parameters for varied results.
+
+### Sentiment Analysis
+Python code for sentiment analysis has been implemented. 
+
+
