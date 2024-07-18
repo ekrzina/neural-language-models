@@ -56,4 +56,4 @@ The current implementation predicts the following sentiment:
 - negative
 - neutral
 
-Any number of sentiments can be analysed this way given a correctly-structured and balanced dataset. The dataset for the application has not been included due to it being custom made and large, but sample sentences have been provided.
+Any number of sentiments can be analyzed this way given a correctly-structured and balanced dataset. The dataset for the application has not been included due to it being custom made and large, but sample sentences have been provided.
