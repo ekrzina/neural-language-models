@@ -51,9 +51,15 @@ Python code for sentiment analysis has been implemented. The directory `sntm_ana
 - `sntm_custom_train.py` - Keras and NLM; trains custom model for sentiment analysis
 - `dataset_analyzer.py` - auxiliary file for analyzing dataset; shows dataset sentiment count and WordCloud for positive and negative sentiment
 
+Example `dataset_analyzer` output:
+
+![Figure_1. Sentiment Count](https://github.com/user-attachments/assets/18ffb794-11b1-4ac4-9ee4-78fbfdf4ccc0)
+
+![Figure_2. Word Cloud for positive and negative sentiment](https://github.com/user-attachments/assets/5e795e33-81dc-4402-b2c5-41c26e5569f7)
+
 The current implementation predicts the following sentiment:
 - positive
 - negative
 - neutral
 
-Any number of sentiments can be analyzed this way given a correctly-structured and balanced dataset. The dataset for the application has not been included due to it being custom made and large, but sample sentences have been provided.
+Any number of sentiments can be analyzed this way given a correctly-structured and balanced dataset. The dataset for the application has not been included due to its size, but sample sentences have been provided.
