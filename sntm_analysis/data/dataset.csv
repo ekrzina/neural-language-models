@@ -1,0 +1,4 @@
+text;sentiment
+I am a sample sentence.;neutral
+I love this!;positive
+I feel horrible today. Must have come down with a sickness.;negative
