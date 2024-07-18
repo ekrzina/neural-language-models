@@ -15,7 +15,7 @@ nltk.download('stopwords')
 print("Downloads complete.")
 ```
 
-The `nlm-torch.py` file and the sentiment-analysis file for custom data training use [GloVe](https://nlp.stanford.edu/projects/glove/) for added embeddings. The files are downloaded using the following command lines:
+The `nlm-torch.py` file and the sentiment-analysis file for custom data training use [GloVe](https://nlp.stanford.edu/projects/glove/) for added embeddings and transfer learning. The files are downloaded using the following command lines:
 
 ```
 mkdir glove
@@ -23,6 +23,8 @@ cd glove
 wget http://nlp.stanford.edu/data/glove.6B.zip
 unzip glove.6B.zip
 ```
+
+Make sure to use this command in the same directory as the Python script you want to run, or change the pathway to the GloVe files in the scripts where it is required.
 
 ## File Description
 
@@ -43,6 +45,15 @@ print(file_ids)
 The `nlm-keras.py` application uses Keras to create a model, train it, validate it and save it, while `nlm-torch.py` uses Pytorch. One can change training parameters for varied results.
 
 ### Sentiment Analysis
-Python code for sentiment analysis has been implemented. 
+Python code for sentiment analysis has been implemented. The directory `sntm_analysis` contains the following Python scripts:
+- `sntm.py` - simple sentiment analysis that uses pre-trained polarity scores for positive, negative and neutral sentiments
+- `custom_sentiment.py` - sentiment analysis that uses a custom model for sentiment analysis
+- `sntm_custom_train.py` - Keras and NLM; trains custom model for sentiment analysis
+- `dataset_analyzer.py` - auxiliary file for analyzing dataset; shows dataset sentiment count and WordCloud for positive and negative sentiment
 
+The current implementation predicts the following sentiment:
+- positive
+- negative
+- neutral
 
+Any number of sentiments can be analysed this way given a correctly-structured and balanced dataset. The dataset for the application has not been included due to it being custom made and large, but sample sentences have been provided.
