@@ -13,9 +13,9 @@ EMBEDDING_DIM = 256
 RNN_UNITS = 1024
 EPOCHS = 50
 
-CHECKPOINT_DIR = "sentgen_checkpoints_v2"
+CHECKPOINT_DIR = "sentgen_checkpoints_v3"
 MODELS_PATH = "model_out"
-MODEL_SAVE_PATH = os.path.join(MODELS_PATH, "sentgen_model_v2")
+MODEL_SAVE_PATH = os.path.join(MODELS_PATH, "sentgen_model_v3")
 # options: checkpoint / model
 LOAD_METHOD = "checkpoint"
 
@@ -151,6 +151,7 @@ def load_latest(vocab_size):
         else:
             print("No checkpoint found. Training a new model.")
             return None
+        
     elif LOAD_METHOD == "model":
         if os.path.exists(MODEL_SAVE_PATH):
             model = tf.keras.models.load_model(MODEL_SAVE_PATH)
@@ -159,6 +160,7 @@ def load_latest(vocab_size):
         else:
             print(f"No model file found at {MODEL_SAVE_PATH}. Training a new model.")
             return None
+        
     else:
         print("No loading method was chosen. Training a new model.")
         return None
@@ -167,7 +169,7 @@ def load_latest(vocab_size):
 def save_model(model):
     if not os.path.exists(MODEL_SAVE_PATH):
         os.makedirs(MODEL_SAVE_PATH)
-    model.save(MODEL_SAVE_PATH)
+    model.save(MODEL_SAVE_PATH, save_format='tf')
     print(f"Model saved to {MODEL_SAVE_PATH}")
     
 # function for training language model
@@ -248,7 +250,7 @@ def main():
         model = train_model(vocab_size, dataset)
     
     # set / generate the starting string and generate sequence
-    start_string = "Once upon a time"
+    start_string = "I knew you"
     print(generate_text(model, start_string, chars_from_ids, ids_from_chars, 500))
 
 if __name__ == "__main__":
