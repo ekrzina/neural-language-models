@@ -13,11 +13,11 @@ EMBEDDING_DIM = 256
 RNN_UNITS = 1024
 EPOCHS = 50
 
-CHECKPOINT_DIR = "sentgen_checkpoints_v3"
+CHECKPOINT_DIR = "sentgen_checkpoints_v4"
 MODELS_PATH = "model_out"
-MODEL_SAVE_PATH = os.path.join(MODELS_PATH, "sentgen_model_v3")
+MODEL_SAVE_PATH = os.path.join(MODELS_PATH, "sentgen_model_v4")
 # options: checkpoint / model
-LOAD_METHOD = "checkpoint"
+LOAD_METHOD = "model"
 
 class OneStep(tf.keras.Model):
     def __init__(self, model, chars_from_ids, ids_from_chars, temperature=1.0):
@@ -154,9 +154,13 @@ def load_latest(vocab_size):
         
     elif LOAD_METHOD == "model":
         if os.path.exists(MODEL_SAVE_PATH):
-            model = tf.keras.models.load_model(MODEL_SAVE_PATH)
-            print(f"Loaded model from saved file {MODEL_SAVE_PATH}")
-            return model
+            try:
+                model = tf.keras.models.load_model(MODEL_SAVE_PATH)
+                print(f"Loaded model from saved file {MODEL_SAVE_PATH}")
+                return model
+            except Exception as e:
+                print(f"Error loading model from saved file: {e}")
+                return None
         else:
             print(f"No model file found at {MODEL_SAVE_PATH}. Training a new model.")
             return None
@@ -175,6 +179,8 @@ def save_model(model):
 # function for training language model
 def train_model(vocab_size, dataset):
     model = LMModel(vocab_size=vocab_size, embedding_dim=EMBEDDING_DIM, rnn_units=RNN_UNITS)
+    # any input shape model
+    model.build(tf.TensorShape([None, None]))
     # sets up model config; displays losses and accuracy while training
     model.compile(optimizer='adam', 
                   loss=tf.losses.SparseCategoricalCrossentropy(from_logits=True), 
