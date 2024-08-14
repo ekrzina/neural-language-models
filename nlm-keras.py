@@ -11,7 +11,7 @@ BATCH_SIZE = 64
 BUFFER_SIZE = 10000
 EMBEDDING_DIM = 256
 RNN_UNITS = 1024
-EPOCHS = 50
+EPOCHS = 5
 
 CHECKPOINT_DIR = "sentgen_checkpoints_v4"
 MODELS_PATH = "model_out"
@@ -153,16 +153,12 @@ def load_latest(vocab_size):
             return None
         
     elif LOAD_METHOD == "model":
-        if os.path.exists(MODEL_SAVE_PATH):
-            try:
-                model = tf.keras.models.load_model(MODEL_SAVE_PATH)
-                print(f"Loaded model from saved file {MODEL_SAVE_PATH}")
-                return model
-            except Exception as e:
-                print(f"Error loading model from saved file: {e}")
-                return None
-        else:
-            print(f"No model file found at {MODEL_SAVE_PATH}. Training a new model.")
+        try:
+            model = tf.keras.models.load_model(MODEL_SAVE_PATH, custom_objects={'LMModel': LMModel})
+            print(f"Loaded model from {MODEL_SAVE_PATH}")
+            return model
+        except Exception as e:
+            print(f"Error loading the model from {MODEL_SAVE_PATH}: {e}")
             return None
         
     else:
